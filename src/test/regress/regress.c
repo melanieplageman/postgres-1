@@ -34,6 +34,7 @@
 #include "optimizer/optimizer.h"
 #include "optimizer/plancat.h"
 #include "port/atomics.h"
+#include "storage/buf_internals.h"
 #include "utils/builtins.h"
 #include "utils/geo_decls.h"
 #include "utils/rel.h"
@@ -49,6 +50,31 @@ static void regress_lseg_construct(LSEG *lseg, Point *pt1, Point *pt2);
 
 PG_MODULE_MAGIC;
 
+PG_FUNCTION_INFO_V1(lock_unlock_buffers);
+
+Datum
+lock_unlock_buffers(PG_FUNCTION_ARGS)
+{
+	Oid relfilenode = PG_GETARG_INT32(0);
+	bool lock = PG_GETARG_BOOL(1);
+
+	size_t i;
+	for (i = 0; i < NBuffers; i++)
+	{
+		BufferDesc *bufHdr = &BufferDescriptors[i].bufferdesc;
+		uint32 bufstate = LockBufHdr(bufHdr);
+		if (relfilenode == bufHdr->tag.rnode.relNode)
+		{
+			if (lock)
+				LockBuffer(BufferDescriptorGetBuffer(bufHdr), BUFFER_LOCK_SHARE);
+			else
+				UnlockReleaseBuffer(BufferDescriptorGetBuffer(bufHdr));
+		}
+		UnlockBufHdr(bufHdr, bufstate);
+	}
+
+	PG_RETURN_BOOL(true);
+}
 
 /* return the point where two paths intersect, or NULL if no intersection. */
 PG_FUNCTION_INFO_V1(interpt_pp);

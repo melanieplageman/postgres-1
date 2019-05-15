@@ -26,6 +26,8 @@ setup
     CREATE TABLE upserttest(key text, data text);
 
     CREATE UNIQUE INDEX ON upserttest((blurt_and_lock(key)));
+
+    CREATE OR REPLACE FUNCTION lock_unlock_buffers(Oid, bool) RETURNS bool as '/home/csteam/workspace/zpostgres/src/test/regress/regress.so', 'lock_unlock_buffers' LANGUAGE C STRICT;
 }
 
 teardown
@@ -46,6 +48,8 @@ step "controller_unlock_2_2" { SELECT pg_advisory_unlock(2, 2); }
 step "controller_unlock_1_3" { SELECT pg_advisory_unlock(1, 3); }
 step "controller_unlock_2_3" { SELECT pg_advisory_unlock(2, 3); }
 step "controller_show" {SELECT * FROM upserttest; }
+step "controller_locks_table_buffers" { SELECT lock_unlock_buffers(relfilenode, true) FROM pg_class WHERE relname='upserttest'; }
+step "controller_unlocks_table_buffers" { SELECT lock_unlock_buffers(relfilenode, false) FROM pg_class WHERE relname='upserttest'; }
 
 session "s1"
 setup
@@ -66,6 +70,30 @@ setup
 step "s2_begin"  { BEGIN; }
 step "s2_upsert" { INSERT INTO upserttest(key, data) VALUES('k1', 'inserted s2') ON CONFLICT (blurt_and_lock(key)) DO UPDATE SET data = upserttest.data || ' with conflict update s2'; }
 step "s2_commit"  { COMMIT; }
+
+# Test that speculative wait occurs when s1 inserts a tuple into the table and
+# index but does not clear the speculative token from the tuple in the table
+# before s2 attempts to insert a tuple into the index
+permutation
+   "controller_locks"
+   "controller_show"
+   "s1_upsert" "s2_upsert"
+   "controller_show"
+   # Switch both sessions to wait on the other lock next time (the speculative insertion)
+   "controller_unlock_1_1" "controller_unlock_2_1"
+   # Allow both sessions to continue
+   "controller_unlock_1_3" "controller_unlock_2_3"
+   "controller_show"
+   # waiting on the index insert
+   # controller take a shared lock on all the buffers for the table
+   "controller_locks_table_buffers"
+   # s1 can continue to insert into the index
+   "controller_unlock_1_2"
+   "controller_show"
+   # s2 waits on spec token set by s1
+   "controller_unlock_2_2"
+   "controller_show"
+   #"controller_unlocks_table_buffers"
 
 # Test that speculative locks are correctly acquired and released, s2
 # inserts, s1 updates.
