@@ -252,7 +252,7 @@ zedstoream_complete_speculative(Relation relation, TupleTableSlot *slot, uint32 
 	/*
 	 * there is a conflict
 	 */
-	if (succeeded)
+	if (!succeeded)
 		elog(ERROR, "zedstoream_complete_speculative succeeded case is not handled ");
 }
 
