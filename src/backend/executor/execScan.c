@@ -356,7 +356,6 @@ GetNeededColumnsForScan(ScanState *scanstate, int ncol)
 {
 	Plan	   *plan = scanstate->ps.plan;
 	bool	   *proj;
-	int			i;
 
 	proj = palloc0(ncol * sizeof(bool));
 	GetNeededColumnsForNode((Node *) plan->targetlist, proj, ncol);
@@ -375,19 +374,6 @@ GetNeededColumnsForScan(ScanState *scanstate, int ncol)
 	{
 		GetNeededColumnsForNode((Node *) ((BitmapHeapScan *) plan)->bitmapqualorig, proj, ncol);
 	}
-
-	for (i = 0; i < ncol; i++)
-	{
-		if (proj[i])
-			break;
-	}
-
-	/*
-	 * In some cases (for example, count(*)), no columns are specified.
-	 * We always scan the first column.
-	 */
-	if (i == ncol && ncol > 0)
-		proj[0] = true;
 
 	return proj;
 }

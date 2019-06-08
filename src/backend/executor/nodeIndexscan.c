@@ -117,8 +117,71 @@ IndexNext(IndexScanState *node)
 
 		if (table_scans_leverage_column_projection(node->ss.ss_currentRelation))
 		{
-			bool *proj;
-			proj = GetNeededColumnsForScan(&node->ss, node->ss.ss_currentRelation->rd_att->natts);
+			Scan *planNode = (Scan *)node->ss.ps.plan;
+			int ncols = node->ss.ss_currentRelation->rd_rel->relnatts;
+			int rti = planNode->scanrelid;
+			RangeTblEntry *rangeTblEntry = list_nth(estate->es_plannedstmt->rtable, rti - 1);
+			List *vars = rangeTblEntry->used_cols;
+			bool *proj = palloc0(sizeof(bool) * ncols);
+			bool *proj2 = NULL;
+			if (vars != NULL)
+			{
+				ListCell *lc1;
+				foreach(lc1, vars)
+				{
+					Var *col = lfirst(lc1);
+					Assert(col->varattno <= ncols);
+					if (col->varattno > 0)
+						proj[col->varattno - 1] = true;
+					else if (col->varattno == 0)
+					{
+						pfree(proj);
+						proj = NULL;
+						break;
+					}
+				}
+
+			}
+
+			proj2 = GetNeededColumnsForScan(&node->ss, ncols);
+			if (proj != NULL && proj2 != NULL)
+			{
+				if (memcmp(proj,proj2,sizeof(bool) * ncols) != 0)
+				{
+					for (int i = 0; i < ncols; i++)
+					{
+						elog(NOTICE, "INDEX get needed cols is %i. other is %i for col num %d. table %s",
+							 proj2[i], proj[i], i+1,
+							 RelationGetRelationName(node->ss.ss_currentRelation));
+					}
+				}
+			}
+			else if ((proj == NULL && proj2 != NULL) || (proj != NULL && proj2 == NULL))
+			{
+				bool *dummy_proj_all_cols = palloc(sizeof(bool) * ncols);
+				memset(dummy_proj_all_cols, 1, ncols);
+				if (proj == NULL)
+				{
+					if (memcmp(proj2, dummy_proj_all_cols, sizeof(bool) * ncols) != 0)
+					{
+						for (int i = 0; i < ncols; i++)
+						{
+							elog(NOTICE, "INDEX get needed cols is %i for col num %i. table %s", proj2[i], i+1,
+								 RelationGetRelationName(node->ss.ss_currentRelation));
+						}
+					}
+				}
+				else if (proj2 == NULL)
+				{
+					for (int i = 0; i < ncols; i++)
+					{
+						if (!proj[i])
+							elog(NOTICE, "INDEX other is %i. col num %i. table is %s", proj[i], i,
+								RelationGetRelationName(node->ss.ss_currentRelation));
+					}
+				}
+			}
+
 			table_index_fetch_set_column_projection(scandesc->xs_heapfetch, proj);
 		}
 
