@@ -71,8 +71,11 @@ SeqNext(SeqScanState *node)
 		 */
 		if (table_scans_leverage_column_projection(node->ss.ss_currentRelation))
 		{
-			bool *proj;
-			proj = GetNeededColumnsForScan(&node->ss, node->ss.ss_currentRelation->rd_att->natts);
+			Scan *planNode = (Scan *)node->ss.ps.plan;
+			int rti = planNode->scanrelid;
+			PlannedStmt *plannedStmt = estate->es_plannedstmt;
+			bool **query_col_set = plannedStmt->query_col_set;
+			bool *proj = query_col_set[rti];
 			scandesc = table_beginscan_with_column_projection(node->ss.ss_currentRelation,
 															  estate->es_snapshot,
 															  0, NULL, proj);
