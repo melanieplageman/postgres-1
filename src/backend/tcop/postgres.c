@@ -30,6 +30,9 @@
 #ifdef HAVE_SYS_RESOURCE_H
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <access/table.h>
+#include <utils/rel.h>
+#include <utils/builtins.h>
 #endif
 
 #ifndef HAVE_GETRUSAGE
@@ -40,6 +43,7 @@
 #include "access/printtup.h"
 #include "access/xact.h"
 #include "catalog/pg_type.h"
+#include "catalog/namespace.h"
 #include "commands/async.h"
 #include "commands/prepare.h"
 #include "executor/spi.h"
@@ -49,6 +53,7 @@
 #include "libpq/pqsignal.h"
 #include "miscadmin.h"
 #include "nodes/print.h"
+#include "nodes/nodeFuncs.h"
 #include "optimizer/optimizer.h"
 #include "pgstat.h"
 #include "pg_trace.h"
@@ -171,6 +176,12 @@ static ProcSignalReason RecoveryConflictReason;
 static MemoryContext row_description_context = NULL;
 static StringInfoData row_description_buf;
 
+typedef struct GetUsedColumnSetContext
+{
+	char *relname;
+	List *colnames;
+} GetUsedColumnSetContext;
+
 /* ----------------------------------------------------------------
  *		decls for routines only used in this file
  * ----------------------------------------------------------------
@@ -196,6 +207,9 @@ static void log_disconnections(int code, Datum arg);
 static void enable_statement_timeout(void);
 static void disable_statement_timeout(void);
 
+static bool *
+GetUsedColumnSet(PlannedStmt *query);
+static bool getUsedColumnSetWalker(Node *node, GetUsedColumnSetContext *context);
 
 /* ----------------------------------------------------------------
  *		routines to obtain user input
@@ -759,6 +773,112 @@ pg_analyze_and_rewrite_params(RawStmt *parsetree,
 	return querytree_list;
 }
 
+
+
+static bool getUsedColumnSetWalker(Node *node, GetUsedColumnSetContext *context)
+{
+	if (node == NULL)
+		return false;
+
+	if (IsA(node, IndexStmt))
+	{
+		IndexStmt *indexStmt = (IndexStmt *) node;
+		IndexElem *indexElem;
+		ListCell *lc;
+		context->relname = indexStmt->relation->relname;
+
+		foreach(lc, indexStmt->indexParams)
+		{
+			indexElem = lfirst(lc);
+			if (indexElem->expr == NULL)
+			{
+				context->colnames = lappend(context->colnames, indexElem->name);
+				return true;
+			}
+			else
+			{
+				if(IsA(indexElem->expr, FuncCall))
+				{
+					FuncCall *funcCall = (FuncCall *)indexElem->expr;
+					ListCell *lc;
+					foreach(lc, funcCall->args)
+					{
+						Node *node1 = lfirst(lc);
+						if (IsA(node1, ColumnRef))
+						{
+							ColumnRef *cref = (ColumnRef *)node1;
+							ListCell *lc1;
+							foreach(lc1, cref->fields)
+							{
+								Value *field = lfirst(lc1);
+								context->colnames = lappend(context->colnames, strVal(field));
+							}
+							return true;
+						}
+						elog(NOTICE, "FuncCall's arg is a %i", node1->type);
+						return raw_expression_tree_walker((Node *)node1,
+							                                  getUsedColumnSetWalker,
+							                                  (void *) context);
+					}
+				}
+				elog(NOTICE, "index expression is a %i", indexElem->expr->type);
+				return raw_expression_tree_walker(indexElem->expr,
+				                                  getUsedColumnSetWalker,
+				                                  (void *) context);
+			}
+		}
+	}
+	return false;
+//	return raw_expression_tree_walker(node,
+//	                                  getUsedColumnSetWalker,
+//	                                  (void *) context);
+}
+
+static bool *
+GetUsedColumnSet(PlannedStmt *query)
+{
+	GetUsedColumnSetContext usedColContext;
+	TupleDesc tupDesc;
+	Node *node = (Node *) query->utilityStmt;
+	bool *attnos;
+	Oid relid;
+	Relation rel;
+	ListCell *l;
+
+	usedColContext.colnames = NIL;
+
+	getUsedColumnSetWalker(node, &usedColContext);
+	if (usedColContext.relname == NULL)
+		return NULL;
+	relid = RelnameGetRelid(usedColContext.relname);
+	rel = table_open(relid, AccessShareLock);
+	tupDesc = RelationGetDescr(rel);
+	attnos = palloc0(sizeof(bool) * (tupDesc->natts + 1));
+
+	foreach(l, usedColContext.colnames)
+	{
+		char *name = lfirst(l);
+		size_t i;
+
+		for (i = 1; i < tupDesc->natts; i++)
+		{
+			Form_pg_attribute att = TupleDescAttr(tupDesc, i);
+
+			if (att->attisdropped)
+				continue;
+			if (namestrcmp(&(att->attname), name) == 0)
+			{
+				elog(NOTICE, "col%i", att->attnum);
+				attnos[att->attnum] = true;
+				break;
+			}
+		}
+	}
+	table_close(rel, AccessShareLock);
+
+	return attnos;
+}
+
 /*
  * Perform rewriting of a query produced by parse analysis.
  *
@@ -1075,6 +1195,7 @@ exec_simple_query(const char *query_string)
 		Portal		portal;
 		DestReceiver *receiver;
 		int16		format;
+		ListCell *planTreeListCell;
 
 		/*
 		 * Get the command name for use in status display (it also becomes the
@@ -1142,6 +1263,12 @@ exec_simple_query(const char *query_string)
 
 		plantree_list = pg_plan_queries(querytree_list,
 										CURSOR_OPT_PARALLEL_OK, NULL);
+
+		foreach(planTreeListCell, plantree_list)
+		{
+			PlannedStmt *current_planstmt = lfirst(planTreeListCell);
+			current_planstmt->utility_col_set = GetUsedColumnSet(current_planstmt);
+		}
 
 		/* Done with the snapshot used for parsing/planning */
 		if (snapshot_set)

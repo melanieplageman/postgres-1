@@ -173,6 +173,7 @@ typedef struct IndexInfo
 	int			ii_ParallelWorkers;
 	Oid			ii_Am;
 	void	   *ii_AmCache;
+	bool *ii_used_cols;
 	MemoryContext ii_Context;
 } IndexInfo;
 

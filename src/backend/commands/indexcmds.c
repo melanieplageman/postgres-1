@@ -800,6 +800,7 @@ DefineIndex(Oid relationId,
 	indexInfo->ii_ParallelWorkers = 0;
 	indexInfo->ii_Am = accessMethodId;
 	indexInfo->ii_AmCache = NULL;
+	indexInfo->ii_used_cols = stmt->used_cols;
 	indexInfo->ii_Context = CurrentMemoryContext;
 
 	typeObjectId = (Oid *) palloc(numberOfAttributes * sizeof(Oid));
