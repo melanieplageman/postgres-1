@@ -179,6 +179,7 @@ typedef struct Query
 	 */
 	int			stmt_location;	/* start location, or -1 if unknown */
 	int			stmt_len;		/* length in bytes; 0 means "rest of string" */
+	int *used_cols;
 } Query;
 
 
@@ -2772,6 +2773,7 @@ typedef struct IndexStmt
 	bool		if_not_exists;	/* just do nothing if index already exists? */
 	bool		reset_default_tblspc;	/* reset default_tablespace prior to
 										 * executing */
+	bool *used_cols;
 } IndexStmt;
 
 /* ----------------------

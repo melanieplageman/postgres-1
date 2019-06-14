@@ -37,6 +37,7 @@
 #include "lib/knapsack.h"
 #include "nodes/makefuncs.h"
 #include "nodes/nodeFuncs.h"
+#include "nodes/pg_list.h"
 #ifdef OPTIMIZER_DEBUG
 #include "nodes/print.h"
 #endif
@@ -288,6 +289,7 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 	Plan	   *top_plan;
 	ListCell   *lp,
 			   *lr;
+	RelOptInfo **rels;
 
 	/*
 	 * Set up global state for this planner invocation.  This data is needed
@@ -559,6 +561,36 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 
 	if (glob->partition_directory != NULL)
 		DestroyPartitionDirectory(glob->partition_directory);
+
+	rels = root->simple_rel_array;
+	result->query_col_set = palloc(sizeof(bool *) * root->simple_rel_array_size);
+	for (size_t i = 1; i < root->simple_rel_array_size; i++)
+	{
+		PathTarget *target;
+		bool *a_rel_cols;
+		ListCell *cell;
+
+		RelOptInfo *rel = rels[i];
+		/*
+		 * simple_rel_array will only contain non-NULL RelOptInfos for baserels
+		 */
+		if (rel == NULL)
+			continue;
+		target= rel->reltarget;
+		a_rel_cols = palloc(sizeof(bool) * (rel->max_attr + 1));
+		foreach(cell, target->exprs)
+		{
+			Expr *expr = lfirst(cell);
+			if (IsA(expr, Var))
+			{
+				Var *col = (Var *)expr;
+				Assert(col->varattno <= rel->max_attr);
+				if(col->varattno > 0)
+					a_rel_cols[col->varattno - 1] = true;
+			}
+		}
+		result->query_col_set[i] = a_rel_cols;
+	}
 
 	return result;
 }

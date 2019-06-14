@@ -1304,6 +1304,7 @@ ProcessUtilitySlow(ParseState *pstate,
 					Oid			relid;
 					LOCKMODE	lockmode;
 
+					stmt->used_cols = pstmt->utility_col_set;
 					if (stmt->concurrent)
 						PreventInTransactionBlock(isTopLevel,
 												  "CREATE INDEX CONCURRENTLY");
