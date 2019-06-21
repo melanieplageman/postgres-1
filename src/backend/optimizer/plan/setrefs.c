@@ -410,6 +410,7 @@ add_rte_to_flat_rtable(PlannerGlobal *glob, RangeTblEntry *rte)
 	newrte->coltypmods = NIL;
 	newrte->colcollations = NIL;
 	newrte->securityQuals = NIL;
+	newrte->used_cols = NIL;
 
 	glob->finalrtable = lappend(glob->finalrtable, newrte);
 

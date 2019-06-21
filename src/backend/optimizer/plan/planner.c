@@ -576,8 +576,16 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 		 */
 		if (rel == NULL)
 			continue;
-		target= rel->reltarget;
+		if (rel->type != RELOPT_BASEREL)
+			continue;
+		//ListCell *lc1;
 		a_rel_cols = palloc(sizeof(bool) * (rel->max_attr + 1));
+		//foreach(lc1, rel->used_cols)
+		//{
+		//	Var *col = lfirst(lc1);
+		//	a_rel_cols[col->varattno - 1] = true;
+		//}
+		target = rel->reltarget;
 		foreach(cell, target->exprs)
 		{
 			Expr *expr = lfirst(cell);
@@ -1976,6 +1984,8 @@ grouping_planner(PlannerInfo *root, bool inheritance_update,
 		grouping_sets_data *gset_data = NULL;
 		standard_qp_extra qp_extra;
 
+		List *used_cols = NIL;
+
 		/* A recursive query should always have setOperations */
 		Assert(!root->hasRecursion);
 
@@ -2077,6 +2087,23 @@ grouping_planner(PlannerInfo *root, bool inheritance_update,
 		 * We also generate (in standard_qp_callback) pathkey representations
 		 * of the query's sort clause, distinct clause, etc.
 		 */
+		ListCell *lc;
+		List *rangeTbl = root->parse->rtable;
+		used_cols = pull_vars_of_level((Node *)root->parse, 0);
+		size_t rti = 1;
+		foreach(lc, rangeTbl)
+		{
+			ListCell *lc1;
+			RangeTblEntry *rangeTblEntry = lfirst(lc);
+			rangeTblEntry->used_cols = NIL;
+			foreach(lc1, used_cols)
+			{
+				Var *var = lfirst(lc1);
+				if (var->varno == rti)
+					rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
+			}
+			rti++;
+		}
 		current_rel = query_planner(root, standard_qp_callback, &qp_extra);
 
 		/*
