@@ -290,6 +290,8 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 	ListCell   *lp,
 			   *lr;
 
+	RelOptInfo **rels;
+
 	/*
 	 * Set up global state for this planner invocation.  This data is needed
 	 * across all levels of sub-Query that might exist in the given command,
@@ -561,31 +563,30 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 	if (glob->partition_directory != NULL)
 		DestroyPartitionDirectory(glob->partition_directory);
 
-	RelOptInfo **rels = root->simple_rel_array;
-	result->query_col_set = palloc(sizeof(bool *) * root->simple_rel_array_size);
+	rels = root->simple_rel_array;
+	result->query_col_set = palloc0(sizeof(bool *) * root->simple_rel_array_size);
 	for (size_t i = 1; i < root->simple_rel_array_size; i++)
 	{
+		bool *a_rel_cols;
+		ListCell *cell;
 		RelOptInfo *rel = rels[i];
 		/*
 		 * simple_rel_array will only contain non-NULL RelOptInfos for baserels
 		 */
 		if (rel == NULL)
 			continue;
-		PathTarget *target = rel->reltarget;
-		bool *a_rel_cols = palloc(sizeof(bool) * (rel->max_attr + 1));
-		ListCell *cell;
-		foreach(cell, target->exprs)
+		if (rel->reloptkind != RELOPT_BASEREL)
+			continue;
+		a_rel_cols = palloc(sizeof(bool) * (rel->max_attr + 1));
+
+		foreach(cell, rel->used_cols)
 		{
-			Expr *expr = lfirst(cell);
-			if (IsA(expr, Var))
-			{
-				Var *col = (Var *)expr;
-				Assert(col->varattno <= rel->max_attr);
-				if(col->varattno > 0)
-					a_rel_cols[col->varattno - 1] = true;
-			}
+			Var *col = lfirst(cell);
+			Assert(col->varattno <= rel->max_attr);
+			if(col->varattno > 0)
+				a_rel_cols[col->varattno - 1] = true;
 		}
-		result->query_col_set[i] = a_rel_cols;
+		result->query_col_set[rel->relid] = a_rel_cols;
 	}
 
 	return result;
@@ -1972,6 +1973,11 @@ grouping_planner(PlannerInfo *root, bool inheritance_update,
 		grouping_sets_data *gset_data = NULL;
 		standard_qp_extra qp_extra;
 
+		ListCell *lc;
+		List *used_cols = NIL;
+		size_t rti;
+		List *rangeTbl;
+
 		/* A recursive query should always have setOperations */
 		Assert(!root->hasRecursion);
 
@@ -2073,6 +2079,22 @@ grouping_planner(PlannerInfo *root, bool inheritance_update,
 		 * We also generate (in standard_qp_callback) pathkey representations
 		 * of the query's sort clause, distinct clause, etc.
 		 */
+		rangeTbl = root->parse->rtable;
+		used_cols = pull_vars_of_level((Node *)root->parse, 0);
+		rti = 1;
+		foreach(lc, rangeTbl)
+		{
+			ListCell *lc1;
+			RangeTblEntry *rangeTblEntry = lfirst(lc);
+			rangeTblEntry->used_cols = NIL;
+			foreach(lc1, used_cols)
+			{
+				Var *var = lfirst(lc1);
+				if (var->varno == rti)
+					rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
+			}
+			rti++;
+		}
 		current_rel = query_planner(root, standard_qp_callback, &qp_extra);
 
 		/*

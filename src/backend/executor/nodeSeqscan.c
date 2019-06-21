@@ -75,7 +75,11 @@ SeqNext(SeqScanState *node)
 			int rti = planNode->scanrelid;
 			PlannedStmt *plannedStmt = estate->es_plannedstmt;
 			bool **query_col_set = plannedStmt->query_col_set;
-			bool *proj = query_col_set[rti];
+			bool *proj;
+			if (query_col_set == NULL)
+				proj = NULL;
+			else
+				proj = query_col_set[rti];
 			scandesc = table_beginscan_with_column_projection(node->ss.ss_currentRelation,
 															  estate->es_snapshot,
 															  0, NULL, proj);
