@@ -24,6 +24,7 @@
 #include "access/sysattr.h"
 #include "access/table.h"
 #include "access/xact.h"
+#include "catalog/catalog.h"
 #include "catalog/pg_constraint.h"
 #include "catalog/pg_inherits.h"
 #include "catalog/pg_proc.h"
@@ -571,6 +572,7 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 		ListCell *cell;
 
 		RelOptInfo *rel = rels[i];
+
 		/*
 		 * simple_rel_array will only contain non-NULL RelOptInfos for baserels
 		 */
@@ -588,13 +590,26 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 		target = rel->reltarget;
 		foreach(cell, target->exprs)
 		{
+			int attno;
 			Expr *expr = lfirst(cell);
 			if (IsA(expr, Var))
 			{
 				Var *col = (Var *)expr;
 				Assert(col->varattno <= rel->max_attr);
 				if(col->varattno > 0)
+				{
+					Relids attr_rels;
+					RangeTblEntry *rte;
 					a_rel_cols[col->varattno - 1] = true;
+					//attno = col->varattno - rel->min_attr;
+					//attr_rels = rel->attr_needed[attno];
+					//rte = root->simple_rte_array[i];
+					//if (!IsCatalogRelationOid(rte->relid))
+					//	if (!bms_is_member(i - 1, attr_rels))
+					//	{
+					//		elog(NOTICE, "attribute number %i is reportedly not a member of attr_needed with value", attno);
+					//	}
+				}
 			}
 		}
 		result->query_col_set[i] = a_rel_cols;

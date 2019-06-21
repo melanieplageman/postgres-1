@@ -1835,7 +1835,10 @@ zedstoream_index_build_range_scan(Relation baseRelation,
 				proj[indexInfo->ii_IndexAttrNumbers[attno] - 1] = true;
 		}
 
-		proj = indexInfo->ii_used_cols;
+		GetNeededColumnsForNode((Node *)indexInfo->ii_Predicate, proj,
+								baseRelation->rd_att->natts);
+		GetNeededColumnsForNode((Node *)indexInfo->ii_Expressions, proj,
+								baseRelation->rd_att->natts);
 
 		scan = table_beginscan_with_column_projection(baseRelation,	/* relation */
 													  snapshot,	/* snapshot */

@@ -242,6 +242,7 @@ add_vars_to_targetlist(PlannerInfo *root, List *vars,
 		{
 			Var		   *var = (Var *) node;
 			RelOptInfo *rel = find_base_rel(root, var->varno);
+			Relids rel_attr_needed;
 			int			attno = var->varattno;
 
 			if (bms_is_subset(where_needed, rel->relids))
@@ -258,6 +259,7 @@ add_vars_to_targetlist(PlannerInfo *root, List *vars,
 			}
 			rel->attr_needed[attno] = bms_add_members(rel->attr_needed[attno],
 													  where_needed);
+			rel_attr_needed = rel->attr_needed[attno];
 		}
 		else if (IsA(node, PlaceHolderVar))
 		{

@@ -815,13 +815,11 @@ static bool getUsedColumnSetWalker(Node *node, GetUsedColumnSetContext *context)
 							}
 							return true;
 						}
-						elog(NOTICE, "FuncCall's arg is a %i", node1->type);
 						return raw_expression_tree_walker((Node *)node1,
 							                                  getUsedColumnSetWalker,
 							                                  (void *) context);
 					}
 				}
-				elog(NOTICE, "index expression is a %i", indexElem->expr->type);
 				return raw_expression_tree_walker(indexElem->expr,
 				                                  getUsedColumnSetWalker,
 				                                  (void *) context);
@@ -1264,11 +1262,11 @@ exec_simple_query(const char *query_string)
 		plantree_list = pg_plan_queries(querytree_list,
 										CURSOR_OPT_PARALLEL_OK, NULL);
 
-		foreach(planTreeListCell, plantree_list)
-		{
-			PlannedStmt *current_planstmt = lfirst(planTreeListCell);
-			current_planstmt->utility_col_set = GetUsedColumnSet(current_planstmt);
-		}
+//		foreach(planTreeListCell, plantree_list)
+//		{
+//			PlannedStmt *current_planstmt = lfirst(planTreeListCell);
+//			current_planstmt->utility_col_set = GetUsedColumnSet(current_planstmt);
+//		}
 
 		/* Done with the snapshot used for parsing/planning */
 		if (snapshot_set)
