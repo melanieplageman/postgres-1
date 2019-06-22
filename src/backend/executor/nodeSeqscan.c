@@ -73,13 +73,24 @@ SeqNext(SeqScanState *node)
 		{
 			Scan *planNode = (Scan *)node->ss.ps.plan;
 			int rti = planNode->scanrelid;
-			PlannedStmt *plannedStmt = estate->es_plannedstmt;
-			bool **query_col_set = plannedStmt->query_col_set;
-			bool *proj;
-			if (query_col_set == NULL)
-				proj = NULL;
-			else
-				proj = query_col_set[rti];
+			RangeTblEntry *rangeTblEntry = list_nth(estate->es_plannedstmt->rtable, rti - 1);
+			List *vars = rangeTblEntry->used_cols;
+			bool *proj = NULL;
+			if (vars != NULL)
+			{
+				ListCell *lc1;
+				proj = palloc0(sizeof(bool) *
+					               (node->ss.ss_currentRelation->rd_rel->relnatts + 1));
+				foreach(lc1, vars)
+				{
+					Var *col = lfirst(lc1);
+					Assert(col->varattno <=
+					    node->ss.ss_currentRelation->rd_rel->relnatts);
+					if (col->varattno > 0)
+						proj[col->varattno - 1] = true;
+				}
+
+			}
 			scandesc = table_beginscan_with_column_projection(node->ss.ss_currentRelation,
 															  estate->es_snapshot,
 															  0, NULL, proj);
