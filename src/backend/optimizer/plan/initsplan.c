@@ -182,6 +182,12 @@ add_other_rels_to_query(PlannerInfo *root)
 void
 build_base_rel_tlists(PlannerInfo *root, List *final_tlist)
 {
+
+	ListCell *lc;
+	size_t rti;
+	List *rangeTbl = root->parse->rtable;
+
+
 	List	   *tlist_vars = pull_var_clause((Node *) final_tlist,
 											 PVC_RECURSE_AGGREGATES |
 											 PVC_RECURSE_WINDOWFUNCS |
@@ -190,8 +196,22 @@ build_base_rel_tlists(PlannerInfo *root, List *final_tlist)
 	if (tlist_vars != NIL)
 	{
 		add_vars_to_targetlist(root, tlist_vars, bms_make_singleton(0), true);
+		rti = 1;
+		foreach(lc, rangeTbl)
+		{
+			ListCell *lc1;
+			RangeTblEntry *rangeTblEntry = lfirst(lc);
+			foreach(lc1, tlist_vars)
+			{
+				Var *var = lfirst(lc1);
+				if (var->varno == rti)
+					rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
+			}
+			rti++;
+		}
 		list_free(tlist_vars);
 	}
+
 
 	/*
 	 * If there's a HAVING clause, we'll need the Vars it uses, too.  Note
@@ -207,6 +227,19 @@ build_base_rel_tlists(PlannerInfo *root, List *final_tlist)
 		{
 			add_vars_to_targetlist(root, having_vars,
 								   bms_make_singleton(0), true);
+			rti = 1;
+			foreach(lc, rangeTbl)
+			{
+				ListCell *lc1;
+				RangeTblEntry *rangeTblEntry = lfirst(lc);
+				foreach(lc1, having_vars)
+				{
+					Var *var = lfirst(lc1);
+					if (var->varno == rti)
+						rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
+				}
+				rti++;
+			}
 			list_free(having_vars);
 		}
 	}

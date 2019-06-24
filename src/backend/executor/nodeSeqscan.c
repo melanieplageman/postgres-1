@@ -88,6 +88,12 @@ SeqNext(SeqScanState *node)
 					    node->ss.ss_currentRelation->rd_rel->relnatts);
 					if (col->varattno > 0)
 						proj[col->varattno - 1] = true;
+					else if (col->varattno == 0)
+					{
+						pfree(proj);
+						proj = NULL;
+						break;
+					}
 				}
 
 			}
