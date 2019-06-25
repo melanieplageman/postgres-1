@@ -117,8 +117,32 @@ IndexNext(IndexScanState *node)
 
 		if (table_scans_leverage_column_projection(node->ss.ss_currentRelation))
 		{
-			bool *proj;
-			proj = GetNeededColumnsForScan(&node->ss, node->ss.ss_currentRelation->rd_att->natts);
+			Scan *planNode = (Scan *)node->ss.ps.plan;
+			int rti = planNode->scanrelid;
+			RangeTblEntry *rangeTblEntry = list_nth(estate->es_plannedstmt->rtable, rti - 1);
+			List *vars = rangeTblEntry->used_cols;
+			bool *proj = NULL;
+			if (vars != NULL)
+			{
+				ListCell *lc1;
+				proj = palloc0(sizeof(bool) *
+					               (node->ss.ss_currentRelation->rd_rel->relnatts + 1));
+				foreach(lc1, vars)
+				{
+					Var *col = lfirst(lc1);
+					Assert(col->varattno <=
+						       node->ss.ss_currentRelation->rd_rel->relnatts);
+					if (col->varattno > 0)
+						proj[col->varattno - 1] = true;
+					else if (col->varattno == 0)
+					{
+						pfree(proj);
+						proj = NULL;
+						break;
+					}
+				}
+
+			}
 			table_index_fetch_set_column_projection(scandesc->xs_heapfetch, proj);
 		}
 
