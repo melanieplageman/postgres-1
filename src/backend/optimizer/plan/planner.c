@@ -2052,7 +2052,14 @@ grouping_planner(PlannerInfo *root, bool inheritance_update,
 		 * of the query's sort clause, distinct clause, etc.
 		 */
 		rangeTbl = root->parse->rtable;
-		used_vars = pull_vars_of_level((Node *)root->parse, 2);
+		used_vars = pull_vars_of_level((Node *)root->parse, 0);
+
+		foreach(lc, root->append_rel_list)
+		{
+			AppendRelInfo *appinfo = (AppendRelInfo *) lfirst(lc);
+			List *appinfo_vars = list_copy(appinfo->translated_vars);
+			used_vars = list_concat(used_vars, appinfo_vars);
+		}
 		rti = 1;
 		foreach(lc, rangeTbl)
 		{
