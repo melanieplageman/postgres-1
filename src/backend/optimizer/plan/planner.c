@@ -1946,7 +1946,7 @@ grouping_planner(PlannerInfo *root, bool inheritance_update,
 		standard_qp_extra qp_extra;
 
 		ListCell *lc;
-		List *used_cols = NIL;
+		List *used_vars = NIL;
 		size_t rti;
 		List *rangeTbl;
 
@@ -2052,18 +2052,42 @@ grouping_planner(PlannerInfo *root, bool inheritance_update,
 		 * of the query's sort clause, distinct clause, etc.
 		 */
 		rangeTbl = root->parse->rtable;
-		used_cols = pull_vars_of_level((Node *)root->parse, 0);
+		used_vars = pull_vars_of_level((Node *)root->parse, 0);
 		rti = 1;
 		foreach(lc, rangeTbl)
 		{
 			ListCell *lc1;
 			RangeTblEntry *rangeTblEntry = lfirst(lc);
 			rangeTblEntry->used_cols = NIL;
-			foreach(lc1, used_cols)
+			foreach(lc1, used_vars)
 			{
-				Var *var = lfirst(lc1);
-				if (var->varno == rti)
-					rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
+				Node *node = lfirst(lc1);
+				if (IsA(node, Var))
+				{
+					Var *var = (Var *) node;
+					if (var->varno == rti)
+						rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
+				}
+				else if (IsA(node, PlaceHolderVar))
+				{
+					PlaceHolderVar *phv = (PlaceHolderVar *) node;
+					Expr *expr = phv->phexpr;
+					if (IsA(expr, OpExpr))
+					{
+						OpExpr *opexpr = (OpExpr *) expr;
+						ListCell *lc2;
+						foreach(lc2, opexpr->args)
+						{
+							Node *arg = lfirst(lc2);
+							if (IsA(arg, Var))
+							{
+								Var *var = (Var *) arg;
+								if (var->varno == rti)
+									rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
+							}
+						}
+					}
+				}
 			}
 			rti++;
 		}
