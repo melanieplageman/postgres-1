@@ -265,6 +265,30 @@ query_planner(PlannerInfo *root,
 	 */
 	add_other_rels_to_query(root);
 
+	ListCell *lc1;
+	size_t rti = 1;
+	foreach(lc1, parse->rtable)
+	{
+		ListCell      *lc2;
+		RangeTblEntry *rangeTblEntry = lfirst(lc1);
+		rangeTblEntry->used_cols = NIL;
+		foreach(lc2, root->append_rel_list)
+		{
+			AppendRelInfo *appinfo = (AppendRelInfo *) lfirst(lc2);
+
+			ListCell *lc3;
+			foreach(lc3, appinfo->translated_vars)
+			{
+				Var *var = lfirst(lc3);
+				if (var->varno == rti)
+				{
+					rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
+				}
+			}
+		}
+		rti++;
+	}
+
 	/*
 	 * Ready to do the primary planning.
 	 */
