@@ -271,7 +271,6 @@ query_planner(PlannerInfo *root,
 	{
 		ListCell      *lc2;
 		RangeTblEntry *rangeTblEntry = lfirst(lc1);
-		rangeTblEntry->used_cols = NIL;
 		foreach(lc2, root->append_rel_list)
 		{
 			AppendRelInfo *appinfo = (AppendRelInfo *) lfirst(lc2);
