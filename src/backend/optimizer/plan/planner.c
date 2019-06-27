@@ -37,7 +37,6 @@
 #include "lib/knapsack.h"
 #include "nodes/makefuncs.h"
 #include "nodes/nodeFuncs.h"
-#include "nodes/pg_list.h"
 #ifdef OPTIMIZER_DEBUG
 #include "nodes/print.h"
 #endif
@@ -1945,11 +1944,6 @@ grouping_planner(PlannerInfo *root, bool inheritance_update,
 		grouping_sets_data *gset_data = NULL;
 		standard_qp_extra qp_extra;
 
-		ListCell *lc;
-		List *used_vars = NIL;
-		size_t rti;
-		List *rangeTbl;
-
 		/* A recursive query should always have setOperations */
 		Assert(!root->hasRecursion);
 
@@ -2051,52 +2045,6 @@ grouping_planner(PlannerInfo *root, bool inheritance_update,
 		 * We also generate (in standard_qp_callback) pathkey representations
 		 * of the query's sort clause, distinct clause, etc.
 		 */
-		rangeTbl = root->parse->rtable;
-		used_vars = pull_vars_of_level((Node *)root->parse, 0);
-
-		foreach(lc, root->append_rel_list)
-		{
-			AppendRelInfo *appinfo = (AppendRelInfo *) lfirst(lc);
-			List *appinfo_vars = list_copy(appinfo->translated_vars);
-			used_vars = list_concat(used_vars, appinfo_vars);
-		}
-		rti = 1;
-		foreach(lc, rangeTbl)
-		{
-			ListCell *lc1;
-			RangeTblEntry *rangeTblEntry = lfirst(lc);
-			foreach(lc1, used_vars)
-			{
-				Node *node = lfirst(lc1);
-				if (IsA(node, Var))
-				{
-					Var *var = (Var *) node;
-					if (var->varno == rti)
-						rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
-				}
-				else if (IsA(node, PlaceHolderVar))
-				{
-					PlaceHolderVar *phv = (PlaceHolderVar *) node;
-					Expr *expr = phv->phexpr;
-					if (IsA(expr, OpExpr))
-					{
-						OpExpr *opexpr = (OpExpr *) expr;
-						ListCell *lc2;
-						foreach(lc2, opexpr->args)
-						{
-							Node *arg = lfirst(lc2);
-							if (IsA(arg, Var))
-							{
-								Var *var = (Var *) arg;
-								if (var->varno == rti)
-									rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
-							}
-						}
-					}
-				}
-			}
-			rti++;
-		}
 		current_rel = query_planner(root, standard_qp_callback, &qp_extra);
 
 		/*

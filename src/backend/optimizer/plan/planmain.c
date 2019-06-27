@@ -30,6 +30,7 @@
 #include "optimizer/placeholder.h"
 #include "optimizer/planmain.h"
 #include "optimizer/tlist.h"
+#include "nodes/pg_list.h"
 
 
 /*
@@ -60,8 +61,10 @@ query_planner(PlannerInfo *root,
 	List	   *joinlist;
 	RelOptInfo *final_rel;
 
-	ListCell *lc1;
-	int rti = 1;
+	int rti;
+	ListCell *lc;
+	List *used_vars = NIL;
+	List *rangeTbl;
 
 
 	/*
@@ -270,21 +273,47 @@ query_planner(PlannerInfo *root,
 	 */
 	add_other_rels_to_query(root);
 
-	foreach(lc1, parse->rtable)
-	{
-		ListCell      *lc2;
-		RangeTblEntry *rangeTblEntry = lfirst(lc1);
-		foreach(lc2, root->append_rel_list)
-		{
-			AppendRelInfo *appinfo = (AppendRelInfo *) lfirst(lc2);
+	rangeTbl = root->parse->rtable;
+	used_vars = pull_vars_of_level((Node *)root->parse, 0);
 
-			ListCell *lc3;
-			foreach(lc3, appinfo->translated_vars)
+	foreach(lc, root->append_rel_list)
+	{
+		AppendRelInfo *appinfo = (AppendRelInfo *) lfirst(lc);
+		List *appinfo_vars = list_copy(appinfo->translated_vars);
+		used_vars = list_concat(used_vars, appinfo_vars);
+	}
+	rti = 1;
+	foreach(lc, rangeTbl)
+	{
+		ListCell *lc1;
+		RangeTblEntry *rangeTblEntry = lfirst(lc);
+		foreach(lc1, used_vars)
+		{
+			Node *node = lfirst(lc1);
+			if (node && IsA(node, Var))
 			{
-				Var *var = lfirst(lc3);
+				Var *var = (Var *) node;
 				if (var && var->varno == rti)
-				{
 					rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
+			}
+			else if (node && IsA(node, PlaceHolderVar))
+			{
+				PlaceHolderVar *phv = (PlaceHolderVar *) node;
+				Expr *expr = phv->phexpr;
+				if (IsA(expr, OpExpr))
+				{
+					OpExpr *opexpr = (OpExpr *) expr;
+					ListCell *lc2;
+					foreach(lc2, opexpr->args)
+					{
+						Node *arg = lfirst(lc2);
+						if (IsA(arg, Var))
+						{
+							Var *var = (Var *) arg;
+							if (var && var->varno == rti)
+								rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
+						}
+					}
 				}
 			}
 		}
