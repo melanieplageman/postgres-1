@@ -280,7 +280,7 @@ query_planner(PlannerInfo *root,
 			foreach(lc3, appinfo->translated_vars)
 			{
 				Var *var = lfirst(lc3);
-				if (var->varno == rti)
+				if (var && var->varno == rti)
 				{
 					rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
 				}
