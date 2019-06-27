@@ -97,29 +97,33 @@ SeqNext(SeqScanState *node)
 						break;
 					}
 				}
-
 			}
 			proj2 = GetNeededColumnsForScan(&node->ss, ncols);
 			if (proj != NULL && proj2 != NULL)
 			{
-
 				if (memcmp(proj,proj2,sizeof(bool) * ncols) != 0)
 				{
 					for (size_t i = 0; i < ncols; i++)
 					{
-						elog(NOTICE, "get needed cols is %i. other is %i", proj2[i], proj[i]);
+						elog(NOTICE, "get needed cols is %i. other is %i for col num %d. table %s",
+							 proj2[i], proj[i], i+1,
+							 RelationGetRelationName(node->ss.ss_currentRelation));
 					}
 				}
 			}
 			else if ((proj == NULL && proj2 != NULL) || (proj != NULL && proj2 == NULL))
 			{
+				bool *dummy_proj_all_cols = palloc(sizeof(bool) * ncols);
+				memset(dummy_proj_all_cols, 1, ncols);
 				if (proj == NULL)
 				{
-					for (size_t i = 0; i < ncols; i++)
+					if (memcmp(proj2, dummy_proj_all_cols, sizeof(bool) * ncols) != 0)
 					{
-						if (!proj2[i])
-							elog(NOTICE, "get needed cols is %i. col num %i. table %s", proj2[i], i,
-								RelationGetRelationName(node->ss.ss_currentRelation));
+						for (size_t i = 0; i < ncols; i++)
+						{
+							elog(NOTICE, "get needed cols is %i for col num %i. table %s", proj2[i], i+1,
+								 RelationGetRelationName(node->ss.ss_currentRelation));
+						}
 					}
 				}
 				else if (proj2 == NULL)
