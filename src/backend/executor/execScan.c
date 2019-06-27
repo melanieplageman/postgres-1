@@ -356,7 +356,6 @@ GetNeededColumnsForScan(ScanState *scanstate, int ncol)
 {
 	Plan	   *plan = scanstate->ps.plan;
 	bool	   *proj;
-	int			i;
 
 	proj = palloc0(ncol * sizeof(bool));
 	GetNeededColumnsForNode((Node *) plan->targetlist, proj, ncol);

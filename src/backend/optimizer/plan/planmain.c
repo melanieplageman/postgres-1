@@ -29,6 +29,7 @@
 #include "optimizer/paths.h"
 #include "optimizer/placeholder.h"
 #include "optimizer/planmain.h"
+#include "optimizer/tlist.h"
 
 
 /*
@@ -58,6 +59,10 @@ query_planner(PlannerInfo *root,
 	Query	   *parse = root->parse;
 	List	   *joinlist;
 	RelOptInfo *final_rel;
+
+	ListCell *lc1;
+	int rti = 1;
+
 
 	/*
 	 * Init planner lists to empty.
@@ -265,8 +270,6 @@ query_planner(PlannerInfo *root,
 	 */
 	add_other_rels_to_query(root);
 
-	ListCell *lc1;
-	size_t rti = 1;
 	foreach(lc1, parse->rtable)
 	{
 		ListCell      *lc2;

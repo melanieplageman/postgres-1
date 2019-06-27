@@ -119,7 +119,7 @@ SeqNext(SeqScanState *node)
 				{
 					if (memcmp(proj2, dummy_proj_all_cols, sizeof(bool) * ncols) != 0)
 					{
-						for (size_t i = 0; i < ncols; i++)
+						for (int i = 0; i < ncols; i++)
 						{
 							elog(NOTICE, "get needed cols is %i for col num %i. table %s", proj2[i], i+1,
 								 RelationGetRelationName(node->ss.ss_currentRelation));
@@ -128,7 +128,7 @@ SeqNext(SeqScanState *node)
 				}
 				else if (proj2 == NULL)
 				{
-					for (size_t i = 0; i < ncols; i++)
+					for (int i = 0; i < ncols; i++)
 					{
 						if (!proj[i])
 							elog(NOTICE, "other is %i. col num %i. table is %s", proj[i], i,
