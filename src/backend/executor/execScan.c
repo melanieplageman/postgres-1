@@ -376,14 +376,5 @@ GetNeededColumnsForScan(ScanState *scanstate, int ncol)
 		GetNeededColumnsForNode((Node *) ((BitmapHeapScan *) plan)->bitmapqualorig, proj, ncol);
 	}
 
-	for (i = 0; i < ncol; i++)
-	{
-		if (proj[i])
-		{
-			break;
-		}
-	}
-
-
 	return proj;
 }
