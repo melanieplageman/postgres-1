@@ -379,15 +379,11 @@ GetNeededColumnsForScan(ScanState *scanstate, int ncol)
 	for (i = 0; i < ncol; i++)
 	{
 		if (proj[i])
+		{
 			break;
+		}
 	}
 
-	/*
-	 * In some cases (for example, count(*)), no columns are specified.
-	 * We always scan the first column.
-	 */
-	if (i == ncol && ncol > 0)
-		proj[0] = true;
 
 	return proj;
 }
