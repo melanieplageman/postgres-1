@@ -72,15 +72,17 @@ SeqNext(SeqScanState *node)
 		if (table_scans_leverage_column_projection(node->ss.ss_currentRelation))
 		{
 			Scan *planNode = (Scan *)node->ss.ps.plan;
+			int ncols = node->ss.ss_currentRelation->rd_att->natts;
 			int rti = planNode->scanrelid;
 			RangeTblEntry *rangeTblEntry = list_nth(estate->es_plannedstmt->rtable, rti - 1);
 			List *vars = rangeTblEntry->used_cols;
 			bool *proj = NULL;
+			bool *proj2 = NULL;
 			if (vars != NULL)
 			{
 				ListCell *lc1;
 				proj = palloc0(sizeof(bool) *
-					               (node->ss.ss_currentRelation->rd_rel->relnatts + 1));
+					               (node->ss.ss_currentRelation->rd_rel->relnatts));
 				foreach(lc1, vars)
 				{
 					Var *col = lfirst(lc1);
@@ -96,6 +98,39 @@ SeqNext(SeqScanState *node)
 					}
 				}
 
+			}
+			proj2 = GetNeededColumnsForScan(&node->ss, ncols);
+			if (proj != NULL && proj2 != NULL)
+			{
+
+				if (memcmp(proj,proj2,sizeof(bool) * ncols) != 0)
+				{
+					for (size_t i = 0; i < ncols; i++)
+					{
+						elog(NOTICE, "get needed cols is %i. other is %i", proj2[i], proj[i]);
+					}
+				}
+			}
+			else if ((proj == NULL && proj2 != NULL) || (proj != NULL && proj2 == NULL))
+			{
+				if (proj == NULL)
+				{
+					for (size_t i = 0; i < ncols; i++)
+					{
+						if (!proj2[i])
+							elog(NOTICE, "get needed cols is %i. col num %i. table %s", proj2[i], i,
+								RelationGetRelationName(node->ss.ss_currentRelation));
+					}
+				}
+				else if (proj2 == NULL)
+				{
+					for (size_t i = 0; i < ncols; i++)
+					{
+						if (!proj[i])
+							elog(NOTICE, "other is %i. col num %i. table is %s", proj[i], i,
+								RelationGetRelationName(node->ss.ss_currentRelation));
+					}
+				}
 			}
 			scandesc = table_beginscan_with_column_projection(node->ss.ss_currentRelation,
 															  estate->es_snapshot,
