@@ -2065,7 +2065,6 @@ grouping_planner(PlannerInfo *root, bool inheritance_update,
 		{
 			ListCell *lc1;
 			RangeTblEntry *rangeTblEntry = lfirst(lc);
-			rangeTblEntry->used_cols = NIL;
 			foreach(lc1, used_vars)
 			{
 				Node *node = lfirst(lc1);
