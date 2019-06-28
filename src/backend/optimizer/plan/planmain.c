@@ -320,23 +320,6 @@ query_planner(PlannerInfo *root,
 		rti++;
 	}
 
-	ListCell *listCell;
-	char *aliasname = NULL;
-	List* parent_used_cols = NIL;
-	foreach(listCell, rangeTbl)
-	{
-		RangeTblEntry *rangeTblEntry = lfirst(listCell);
-		if (rangeTblEntry->inh == true)
-		{
-			aliasname = rangeTblEntry->eref->aliasname;
-			parent_used_cols = rangeTblEntry->used_cols;
-		}
-		else if (aliasname && strcmp(aliasname, rangeTblEntry->eref->aliasname) == 0)
-		{
-			rangeTblEntry->used_cols = parent_used_cols;
-		}
-	}
-
 	/*
 	 * Ready to do the primary planning.
 	 */
