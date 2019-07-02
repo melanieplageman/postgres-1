@@ -66,6 +66,8 @@ query_planner(PlannerInfo *root,
 	List *used_vars = NIL;
 	List *rangeTbl;
 
+	ListCell *lc7;
+
 
 	/*
 	 * Init planner lists to empty.
@@ -324,6 +326,72 @@ query_planner(PlannerInfo *root,
 	 * Ready to do the primary planning.
 	 */
 	final_rel = make_one_rel(root, joinlist);
+
+	rti = 0;
+	foreach(lc7, root->parse->rtable)
+	{
+		ListCell   *l;
+		int			parentRTindex;
+		RangeTblEntry *rangeTblEntry = lfirst(lc7);
+		rti++;
+
+		if (rangeTblEntry->inh == false)
+			continue;
+		/*
+		 * TODO:
+		 * For the below DDL and query, inh is true for the subqueries of the UNION ALL
+		 * however, adding the columns from the AppendRelInfo was resulting in incorrect
+		 * number of used cols for the range table entry for the column-less table onerow
+		 * because it is a lateral query, we were able to hack around it with this check
+		 * but that is not a viable long-term fix
+		 * CREATE TABLE INT8_TBL(q1 int8, q2 int8);
+		 * INSERT INTO INT8_TBL VALUES('4567890123456789','123');
+		 * create  table onerow();
+		 * insert into onerow default values;
+		 * select * from int8_tbl, lateral (select int8_tbl.q1 from onerow union all select int8_tbl.q2 from onerow)ss;
+		 */
+		if (rangeTblEntry->lateral == true)
+			continue;
+
+		parentRTindex = rti;
+
+
+		foreach(l, root->append_rel_list)
+		{
+			AppendRelInfo *appinfo = (AppendRelInfo *) lfirst(l);
+			int           childRTindex;
+			RangeTblEntry *childRTE;
+			RelOptInfo    *childrel;
+			ListCell *listCell;
+
+			/* append_rel_list contains all append rels; ignore others */
+			if (appinfo->parent_relid != parentRTindex)
+				continue;
+
+			/* Re-locate the child RTE and RelOptInfo */
+			childRTindex = appinfo->child_relid;
+			childRTE     = root->simple_rte_array[childRTindex];
+			childrel     = root->simple_rel_array[childRTindex];
+			childRTE->used_cols = NIL;
+			foreach(listCell, childrel->reltarget->exprs)
+			{
+				Node *node = lfirst(listCell);
+				if (IsA(node, Var))
+					childRTE->used_cols = lappend(childRTE->used_cols, node);
+			}
+			foreach(listCell, childrel->baserestrictinfo)
+			{
+				RestrictInfo *rinfo = (RestrictInfo *) lfirst(listCell);
+				List *vars = pull_var_clause((Node *)rinfo->clause, 0);
+				ListCell *listCell1;
+				foreach(listCell1, vars)
+				{
+					Var *var = lfirst(listCell1);
+					childRTE->used_cols = lappend(childRTE->used_cols, var);
+				}
+			}
+		}
+	}
 
 	/* Check that we got at least one usable path */
 	if (!final_rel || !final_rel->cheapest_total_path ||
