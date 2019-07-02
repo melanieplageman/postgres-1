@@ -375,9 +375,16 @@ query_planner(PlannerInfo *root,
 			childRTE->used_cols = NIL;
 			foreach(listCell, childrel->reltarget->exprs)
 			{
-				Node *node = lfirst(listCell);
-				if (IsA(node, Var))
-					childRTE->used_cols = lappend(childRTE->used_cols, node);
+				Node *node;
+				List *vars;
+				ListCell *listCell1;
+				node = lfirst(listCell);
+				vars = pull_var_clause(node, 0);
+				foreach(listCell1, vars)
+				{
+					Var *var = lfirst(listCell1);
+					childRTE->used_cols = lappend(childRTE->used_cols, var);
+				}
 			}
 			foreach(listCell, childrel->baserestrictinfo)
 			{
