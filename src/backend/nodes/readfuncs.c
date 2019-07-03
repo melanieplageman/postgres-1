@@ -1432,6 +1432,7 @@ _readRangeTblEntry(void)
 	READ_BITMAPSET_FIELD(updatedCols);
 	READ_BITMAPSET_FIELD(extraUpdatedCols);
 	READ_NODE_FIELD(securityQuals);
+	READ_NODE_FIELD(used_cols);
 
 	READ_DONE();
 }
