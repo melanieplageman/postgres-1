@@ -104,7 +104,7 @@ SeqNext(SeqScanState *node)
 				{
 					for (int i = 0; i < ncols; i++)
 					{
-						elog(DEBUG1, "get needed cols is %i. other is %i for col num %d. table %s",
+						elog(NOTICE, "get needed cols is %i. other is %i for col num %d. table %s",
 							 proj2[i], proj[i], i+1,
 							 RelationGetRelationName(node->ss.ss_currentRelation));
 					}
@@ -120,7 +120,7 @@ SeqNext(SeqScanState *node)
 					{
 						for (int i = 0; i < ncols; i++)
 						{
-							elog(DEBUG1, "get needed cols is %i for col num %i. table %s", proj2[i], i+1,
+							elog(NOTICE, "get needed cols is %i for col num %i. table %s", proj2[i], i+1,
 								 RelationGetRelationName(node->ss.ss_currentRelation));
 						}
 					}
@@ -130,7 +130,7 @@ SeqNext(SeqScanState *node)
 					for (int i = 0; i < ncols; i++)
 					{
 						if (!proj[i])
-							elog(DEBUG1, "other is %i. col num %i. table is %s", proj[i], i,
+							elog(NOTICE, "other is %i. col num %i. table is %s", proj[i], i,
 								RelationGetRelationName(node->ss.ss_currentRelation));
 					}
 				}
