@@ -379,7 +379,13 @@ query_planner(PlannerInfo *root,
 				List *vars;
 				ListCell *listCell1;
 				node = lfirst(listCell);
-				vars = pull_var_clause(node, 0);
+				/*
+				 * TODO: suggest a default for vars_only to make maintenance less burdensome
+				 */
+				vars = pull_var_clause(node,
+					PVC_RECURSE_AGGREGATES |
+					PVC_RECURSE_WINDOWFUNCS |
+					PVC_RECURSE_PLACEHOLDERS);
 				foreach(listCell1, vars)
 				{
 					Var *var = lfirst(listCell1);
