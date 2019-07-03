@@ -76,13 +76,12 @@ SeqNext(SeqScanState *node)
 			int rti = planNode->scanrelid;
 			RangeTblEntry *rangeTblEntry = list_nth(estate->es_plannedstmt->rtable, rti - 1);
 			List *vars = rangeTblEntry->used_cols;
-			bool *proj = NULL;
+			bool *proj = palloc0(sizeof(bool) *
+				                     (node->ss.ss_currentRelation->rd_rel->relnatts));
 			bool *proj2 = NULL;
 			if (vars != NULL)
 			{
 				ListCell *lc1;
-				proj = palloc0(sizeof(bool) *
-					               (node->ss.ss_currentRelation->rd_rel->relnatts));
 				foreach(lc1, vars)
 				{
 					Var *col = lfirst(lc1);
