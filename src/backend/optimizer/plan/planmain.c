@@ -275,6 +275,11 @@ query_planner(PlannerInfo *root,
 	 */
 	add_other_rels_to_query(root);
 
+	/*
+	 * TODO: functions which are expanded from FunctionScan during execution
+	 * will always scan all columns because we are not able to associate the
+	 * vars in the functionscan with the eventual relation scanned
+	 */
 	rangeTbl = root->parse->rtable;
 	used_vars = pull_vars_of_level((Node *)root->parse, 0);
 
