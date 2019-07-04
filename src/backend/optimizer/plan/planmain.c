@@ -296,6 +296,7 @@ query_planner(PlannerInfo *root,
 		RangeTblEntry *rangeTblEntry = lfirst(lc);
 		foreach(lc1, used_vars)
 		{
+			ListCell *lc2;
 			Node *node = lfirst(lc1);
 			if (node && IsA(node, Var))
 			{
@@ -305,21 +306,29 @@ query_planner(PlannerInfo *root,
 			}
 			else if (node && IsA(node, PlaceHolderVar))
 			{
-				PlaceHolderVar *phv = (PlaceHolderVar *) node;
-				Expr *expr = phv->phexpr;
-				if (IsA(expr, OpExpr))
+				PlaceHolderVar *phv  = (PlaceHolderVar *) node;
+				List           *args = NIL;
+				switch (phv->phexpr->type)
 				{
-					OpExpr *opexpr = (OpExpr *) expr;
-					ListCell *lc2;
-					foreach(lc2, opexpr->args)
+					case T_OpExpr:
+						args = ((OpExpr *) phv->phexpr)->args;
+						break;
+					case T_CoalesceExpr:
+						args = ((CoalesceExpr *) phv->phexpr)->args;
+						break;
+					case T_Const:
+						break;
+					default:
+						elog(ERROR, "PlaceHolderVar expression type not handled %i", phv->phexpr->type);
+				}
+				foreach(lc2, args)
+				{
+					Node *arg = lfirst(lc2);
+					if (IsA(arg, Var))
 					{
-						Node *arg = lfirst(lc2);
-						if (IsA(arg, Var))
-						{
-							Var *var = (Var *) arg;
-							if (var && var->varno == rti)
-								rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
-						}
+						Var *var = (Var *) arg;
+						if (var && var->varno == rti)
+							rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
 					}
 				}
 			}
