@@ -306,30 +306,12 @@ query_planner(PlannerInfo *root,
 			}
 			else if (node && IsA(node, PlaceHolderVar))
 			{
-				PlaceHolderVar *phv  = (PlaceHolderVar *) node;
-				List           *args = NIL;
-				switch (phv->phexpr->type)
+				List *phv_vars = pull_placeholder_vars(node);
+				foreach(lc2, phv_vars)
 				{
-					case T_OpExpr:
-						args = ((OpExpr *) phv->phexpr)->args;
-						break;
-					case T_CoalesceExpr:
-						args = ((CoalesceExpr *) phv->phexpr)->args;
-						break;
-					case T_Const:
-						break;
-					default:
-						elog(ERROR, "PlaceHolderVar expression type not handled %i", phv->phexpr->type);
-				}
-				foreach(lc2, args)
-				{
-					Node *arg = lfirst(lc2);
-					if (IsA(arg, Var))
-					{
-						Var *var = (Var *) arg;
-						if (var && var->varno == rti)
-							rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
-					}
+					Var *var = (Var *)lfirst(lc2);
+					if (var && var->varno == rti)
+						rangeTblEntry->used_cols = lappend(rangeTblEntry->used_cols,var);
 				}
 			}
 		}

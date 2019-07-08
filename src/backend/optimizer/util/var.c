@@ -48,6 +48,11 @@ typedef struct
 
 typedef struct
 {
+	List *vars;
+} pull_placeholder_vars_context;
+
+typedef struct
+{
 	int			var_location;
 	int			sublevels_up;
 } locate_var_of_level_context;
@@ -70,6 +75,7 @@ static bool pull_varnos_walker(Node *node,
 							   pull_varnos_context *context);
 static bool pull_varattnos_walker(Node *node, pull_varattnos_context *context);
 static bool pull_vars_walker(Node *node, pull_vars_context *context);
+static bool pull_placeholder_vars_walker(Node *node, pull_placeholder_vars_context *context);
 static bool contain_var_clause_walker(Node *node, void *context);
 static bool contain_vars_of_level_walker(Node *node, int *sublevels_up);
 static bool locate_var_of_level_walker(Node *node,
@@ -316,6 +322,28 @@ pull_vars_walker(Node *node, pull_vars_context *context)
 								  (void *) context);
 }
 
+/* Use with caution */
+static bool pull_placeholder_vars_walker(Node *node, pull_placeholder_vars_context *context)
+{
+	if (node == NULL)
+		return false;
+	if (IsA(node, Var))
+	{
+		context->vars = lappend(context->vars, node);
+		return false;
+	}
+	return expression_tree_walker(node, pull_placeholder_vars_walker, (void *) context);
+}
+
+List *pull_placeholder_vars(Node *node)
+{
+	pull_placeholder_vars_context context;
+	context.vars = NIL;
+
+	pull_placeholder_vars_walker(node, &context);
+
+	return context.vars;
+}
 
 /*
  * contain_var_clause
