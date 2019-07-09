@@ -294,6 +294,14 @@ query_planner(PlannerInfo *root,
 	{
 		ListCell *lc1;
 		RangeTblEntry *rangeTblEntry = lfirst(lc);
+		/*
+		 * Only collect used cols in this way if it is not an inherited or partition table
+		 * For partition tables, the assumption here is that the parent will have inh == true
+		 * and we can detect it and avoid adding any of the translated_vars (because all of the columns
+		 * will always be in translated_vars)
+		 */
+		if (rangeTblEntry->inh == true)
+			break;
 		foreach(lc1, used_vars)
 		{
 			ListCell *lc2;
@@ -368,7 +376,6 @@ query_planner(PlannerInfo *root,
 			childRTindex = appinfo->child_relid;
 			childRTE     = root->simple_rte_array[childRTindex];
 			childrel     = root->simple_rel_array[childRTindex];
-			childRTE->used_cols = NIL;
 			foreach(listCell, childrel->reltarget->exprs)
 			{
 				Node *node;
