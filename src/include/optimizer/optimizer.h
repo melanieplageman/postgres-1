@@ -179,7 +179,7 @@ extern SortGroupClause *get_sortgroupref_clause_noerr(Index sortref,
 extern Bitmapset *pull_varnos(Node *node);
 extern Bitmapset *pull_varnos_of_level(Node *node, int levelsup);
 extern void pull_varattnos(Node *node, Index varno, Bitmapset **varattnos);
-extern List *pull_vars_of_level(Node *node, int levelsup);
+extern List *pull_vars_of_level(Node *node, int levelsup, int flags);
 extern List *pull_placeholder_vars(Node *node);
 extern bool contain_var_clause(Node *node);
 extern bool contain_vars_of_level(Node *node, int levelsup);

@@ -30,6 +30,7 @@
 #include "optimizer/placeholder.h"
 #include "optimizer/planmain.h"
 #include "optimizer/tlist.h"
+#include "nodes/nodeFuncs.h"
 #include "nodes/pg_list.h"
 
 
@@ -281,7 +282,7 @@ query_planner(PlannerInfo *root,
 	 * vars in the functionscan with the eventual relation scanned
 	 */
 	rangeTbl = root->parse->rtable;
-	used_vars = pull_vars_of_level((Node *)root->parse, 0);
+	used_vars = pull_vars_of_level((Node *)root->parse, 0, QTW_IGNORE_RESULTING_TLIST);
 
 	foreach(lc, root->append_rel_list)
 	{

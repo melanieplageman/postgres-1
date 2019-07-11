@@ -266,7 +266,7 @@ pull_varattnos_walker(Node *node, pull_varattnos_context *context)
  * Caution: the Vars are not copied, only linked into the list.
  */
 List *
-pull_vars_of_level(Node *node, int levelsup)
+pull_vars_of_level(Node *node, int levelsup, int flags)
 {
 	pull_vars_context context;
 
@@ -280,7 +280,7 @@ pull_vars_of_level(Node *node, int levelsup)
 	query_or_expression_tree_walker(node,
 									pull_vars_walker,
 									(void *) &context,
-									0);
+									flags);
 
 	return context.vars;
 }
