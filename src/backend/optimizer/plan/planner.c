@@ -1687,7 +1687,11 @@ inheritance_planner(PlannerInfo *root)
 			RangeTblEntry *subroot_rte = lfirst(listCell);
 			RangeTblEntry *finalroot_rte = list_nth(final_rtable, rti);
 			if (finalroot_rte->used_cols != subroot_rte->used_cols)
-				finalroot_rte->used_cols = list_concat(finalroot_rte->used_cols, subroot_rte->used_cols);
+			{
+				List *new_subroot_rte_used_cols;
+				new_subroot_rte_used_cols = list_copy(subroot_rte->used_cols);
+				finalroot_rte->used_cols = list_concat(finalroot_rte->used_cols, new_subroot_rte_used_cols);
+			}
 			rti++;
 		}
 
