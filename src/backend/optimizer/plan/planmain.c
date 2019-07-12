@@ -325,79 +325,82 @@ query_planner(PlannerInfo *root,
 	final_rel = make_one_rel(root, joinlist);
 
 	rti = 0;
-	foreach(lc7, root->parse->rtable)
+
+	if (root->append_rel_list)
 	{
-		ListCell   *l;
-		int			parentRTindex;
-		RangeTblEntry *rangeTblEntry = lfirst(lc7);
-		rti++;
-
-		if (rangeTblEntry->inh == false)
-			continue;
-		/*
-		 * TODO:
-		 * For the below DDL and query, inh is true for the subqueries of the UNION ALL
-		 * however, adding the columns from the AppendRelInfo was resulting in incorrect
-		 * number of used cols for the range table entry for the column-less table onerow
-		 * because it is a lateral query, we were able to hack around it with this check
-		 * but that is not a viable long-term fix
-		 * CREATE TABLE INT8_TBL(q1 int8, q2 int8);
-		 * INSERT INTO INT8_TBL VALUES('4567890123456789','123');
-		 * create  table onerow();
-		 * insert into onerow default values;
-		 * select * from int8_tbl, lateral (select int8_tbl.q1 from onerow union all select int8_tbl.q2 from onerow)ss;
-		 */
-		if (rangeTblEntry->lateral == true)
-			continue;
-
-		parentRTindex = rti;
-
-
-		foreach(l, root->append_rel_list)
+		foreach(lc7, root->parse->rtable)
 		{
-			AppendRelInfo *appinfo = (AppendRelInfo *) lfirst(l);
-			int           childRTindex;
-			RangeTblEntry *childRTE;
-			RelOptInfo    *childrel;
-			ListCell *listCell;
+			ListCell   *l;
+			int			parentRTindex;
+			RangeTblEntry *rangeTblEntry = lfirst(lc7);
+			rti++;
 
-			/* append_rel_list contains all append rels; ignore others */
-			if (appinfo->parent_relid != parentRTindex)
+			if (rangeTblEntry->inh == false)
+				continue;
+			/*
+			 * TODO:
+			 * For the below DDL and query, inh is true for the subqueries of the UNION ALL
+			 * however, adding the columns from the AppendRelInfo was resulting in incorrect
+			 * number of used cols for the range table entry for the column-less table onerow
+			 * because it is a lateral query, we were able to hack around it with this check
+			 * but that is not a viable long-term fix
+			 * CREATE TABLE INT8_TBL(q1 int8, q2 int8);
+			 * INSERT INTO INT8_TBL VALUES('4567890123456789','123');
+			 * create  table onerow();
+			 * insert into onerow default values;
+			 * select * from int8_tbl, lateral (select int8_tbl.q1 from onerow union all select int8_tbl.q2 from onerow)ss;
+			 */
+			if (rangeTblEntry->lateral == true)
 				continue;
 
-			/* Re-locate the child RTE and RelOptInfo */
-			childRTindex = appinfo->child_relid;
-			childRTE     = root->simple_rte_array[childRTindex];
-			childrel     = root->simple_rel_array[childRTindex];
-			childRTE->used_cols = NIL;
-			foreach(listCell, childrel->reltarget->exprs)
+			parentRTindex = rti;
+
+			foreach(l, root->append_rel_list)
 			{
-				Node *node;
-				List *vars;
-				ListCell *listCell1;
-				node = lfirst(listCell);
-				/*
-				 * TODO: suggest a default for vars_only to make maintenance less burdensome
-				 */
-				vars = pull_var_clause(node,
-					PVC_RECURSE_AGGREGATES |
-					PVC_RECURSE_WINDOWFUNCS |
-					PVC_RECURSE_PLACEHOLDERS);
-				foreach(listCell1, vars)
+				AppendRelInfo *appinfo = (AppendRelInfo *) lfirst(l);
+				int           childRTindex;
+				RangeTblEntry *childRTE;
+				RelOptInfo    *childrel;
+				ListCell *listCell;
+
+				/* append_rel_list contains all append rels; ignore others */
+				if (appinfo->parent_relid != parentRTindex)
+					continue;
+
+				/* Re-locate the child RTE and RelOptInfo */
+				childRTindex = appinfo->child_relid;
+				childRTE     = root->simple_rte_array[childRTindex];
+				childrel     = root->simple_rel_array[childRTindex];
+				childRTE->used_cols = NIL;
+				foreach(listCell, childrel->reltarget->exprs)
 				{
-					Var *var = lfirst(listCell1);
-					childRTE->used_cols = lappend(childRTE->used_cols, var);
+					Node *node;
+					List *vars;
+					ListCell *listCell1;
+					node = lfirst(listCell);
+					/*
+					 * TODO: suggest a default for vars_only to make maintenance less burdensome
+					 */
+					vars = pull_var_clause(node,
+										   PVC_RECURSE_AGGREGATES |
+										   PVC_RECURSE_WINDOWFUNCS |
+										   PVC_RECURSE_PLACEHOLDERS);
+					foreach(listCell1, vars)
+					{
+						Var *var = lfirst(listCell1);
+						childRTE->used_cols = lappend(childRTE->used_cols, var);
+					}
 				}
-			}
-			foreach(listCell, childrel->baserestrictinfo)
-			{
-				RestrictInfo *rinfo = (RestrictInfo *) lfirst(listCell);
-				List *vars = pull_var_clause((Node *)rinfo->clause, 0);
-				ListCell *listCell1;
-				foreach(listCell1, vars)
+				foreach(listCell, childrel->baserestrictinfo)
 				{
-					Var *var = lfirst(listCell1);
-					childRTE->used_cols = lappend(childRTE->used_cols, var);
+					RestrictInfo *rinfo = (RestrictInfo *) lfirst(listCell);
+					List *vars = pull_var_clause((Node *)rinfo->clause, 0);
+					ListCell *listCell1;
+					foreach(listCell1, vars)
+					{
+						Var *var = lfirst(listCell1);
+						childRTE->used_cols = lappend(childRTE->used_cols, var);
+					}
 				}
 			}
 		}
