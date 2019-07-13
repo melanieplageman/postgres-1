@@ -2284,11 +2284,8 @@ query_tree_walker(Query *query,
 		return true;
 	if (walker((Node *) query->onConflict, context))
 		return true;
-	if (!(flags & QTW_IGNORE_RESULTING_TLIST))
-	{
-		if (walker((Node *) query->returningList, context))
-			return true;
-	}
+	if (walker((Node *) query->returningList, context))
+		return true;
 	if (walker((Node *) query->jointree, context))
 		return true;
 	if (walker(query->setOperations, context))

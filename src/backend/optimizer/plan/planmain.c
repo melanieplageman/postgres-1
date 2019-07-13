@@ -29,7 +29,6 @@
 #include "optimizer/paths.h"
 #include "optimizer/placeholder.h"
 #include "optimizer/planmain.h"
-#include "nodes/pg_list.h"
 
 
 /*
@@ -270,55 +269,6 @@ query_planner(PlannerInfo *root,
 	 * Ready to do the primary planning.
 	 */
 	final_rel = make_one_rel(root, joinlist);
-
-	for (int i = 1; i < root->simple_rel_array_size; i++)
-	{
-		ListCell *listCell;
-		RangeTblEntry *childRTE = root->simple_rte_array[i];
-		RelOptInfo    *childrel = root->simple_rel_array[i];
-
-		if (childRTE == NULL)
-			continue;
-
-		if (childrel == NULL)
-			continue;
-
-		childRTE->used_cols = NIL;
-
-		foreach(listCell, childrel->reltarget->exprs)
-		{
-			Node *node;
-			List *vars;
-			ListCell *listCell1;
-			node = lfirst(listCell);
-			/*
-			 * TODO: suggest a default for vars_only to make maintenance less burdensome
-			 */
-			vars = pull_var_clause(node,
-			                       PVC_RECURSE_AGGREGATES |
-				                       PVC_RECURSE_WINDOWFUNCS |
-				                       PVC_RECURSE_PLACEHOLDERS);
-			foreach(listCell1, vars)
-			{
-				Var *var = lfirst(listCell1);
-				if (var->varno == i)
-					childRTE->used_cols = lappend(childRTE->used_cols, var);
-			}
-		}
-
-		foreach(listCell, childrel->baserestrictinfo)
-		{
-			RestrictInfo *rinfo = (RestrictInfo *) lfirst(listCell);
-			List *vars = pull_var_clause((Node *)rinfo->clause, 0);
-			ListCell *listCell1;
-			foreach(listCell1, vars)
-			{
-				Var *var = lfirst(listCell1);
-				childRTE->used_cols = lappend(childRTE->used_cols, var);
-			}
-		}
-	}
-
 
 	/* Check that we got at least one usable path */
 	if (!final_rel || !final_rel->cheapest_total_path ||

@@ -27,7 +27,6 @@
 #define QTW_EXAMINE_RTES_AFTER		0x20	/* examine RTE nodes after their
 											 * contents */
 #define QTW_DONT_COPY_QUERY			0x40	/* do not copy top Query */
-#define QTW_IGNORE_RESULTING_TLIST  0x80    /* returning tlist */
 
 /* callback function for check_functions_in_node */
 typedef bool (*check_function_callback) (Oid func_id, void *context);

@@ -244,8 +244,6 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
 	rel->nullable_partexprs = NULL;
 	rel->partitioned_child_rels = NIL;
 
-	rel->used_cols = rte->used_cols;
-
 	/*
 	 * Pass assorted information down the inheritance hierarchy.
 	 */
