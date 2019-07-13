@@ -29,8 +29,6 @@
 #include "optimizer/paths.h"
 #include "optimizer/placeholder.h"
 #include "optimizer/planmain.h"
-#include "optimizer/tlist.h"
-#include "nodes/nodeFuncs.h"
 #include "nodes/pg_list.h"
 
 
@@ -61,14 +59,6 @@ query_planner(PlannerInfo *root,
 	Query	   *parse = root->parse;
 	List	   *joinlist;
 	RelOptInfo *final_rel;
-
-	int rti;
-	ListCell *lc;
-	List *used_vars = NIL;
-	List *rangeTbl;
-
-	ListCell *lc7;
-
 
 	/*
 	 * Init planner lists to empty.
@@ -275,14 +265,6 @@ query_planner(PlannerInfo *root,
 	 * from baserels to otherrels here, so we must have computed it already.
 	 */
 	add_other_rels_to_query(root);
-
-	/*
-	 * TODO: functions which are expanded from FunctionScan during execution
-	 * will always scan all columns because we are not able to associate the
-	 * vars in the functionscan with the eventual relation scanned
-	 */
-	rangeTbl = root->parse->rtable;
-
 
 	/*
 	 * Ready to do the primary planning.

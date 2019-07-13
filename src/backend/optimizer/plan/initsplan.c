@@ -363,15 +363,15 @@ extract_lateral_references(PlannerInfo *root, RelOptInfo *brel, Index rtindex)
 
 	/* Fetch the appropriate variables */
 	if (rte->rtekind == RTE_RELATION)
-		vars = pull_vars_of_level((Node *) rte->tablesample, 0, 0);
+		vars = pull_vars_of_level((Node *) rte->tablesample, 0);
 	else if (rte->rtekind == RTE_SUBQUERY)
-		vars = pull_vars_of_level((Node *) rte->subquery, 1, 0);
+		vars = pull_vars_of_level((Node *) rte->subquery, 1);
 	else if (rte->rtekind == RTE_FUNCTION)
-		vars = pull_vars_of_level((Node *) rte->functions, 0, 0);
+		vars = pull_vars_of_level((Node *) rte->functions, 0);
 	else if (rte->rtekind == RTE_TABLEFUNC)
-		vars = pull_vars_of_level((Node *) rte->tablefunc, 0, 0);
+		vars = pull_vars_of_level((Node *) rte->tablefunc, 0);
 	else if (rte->rtekind == RTE_VALUES)
-		vars = pull_vars_of_level((Node *) rte->values_lists, 0, 0);
+		vars = pull_vars_of_level((Node *) rte->values_lists, 0);
 	else
 	{
 		Assert(false);
