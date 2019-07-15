@@ -277,7 +277,10 @@ extract_used_columns(PlannerInfo *root)
 		foreach(listCell, childrel->baserestrictinfo)
 		{
 			RestrictInfo *rinfo = (RestrictInfo *) lfirst(listCell);
-			List *vars = pull_var_clause((Node *)rinfo->clause, 0);
+			List *vars = pull_var_clause((Node *)rinfo->clause,
+			                             PVC_RECURSE_AGGREGATES |
+				                             PVC_RECURSE_WINDOWFUNCS |
+				                             PVC_RECURSE_PLACEHOLDERS);
 			ListCell *listCell1;
 			foreach(listCell1, vars)
 			{
